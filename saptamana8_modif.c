@@ -7,7 +7,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <time.h>
-#include <sys/wait.h>
 
 void convertToGrayscale(const char *bmpPath, const char *outputPath) {
     int bmpFile = open(bmpPath, O_RDONLY);
@@ -46,7 +45,7 @@ void processFile(const char *filePath);
 
 void processSymbolicLink(const char *linkPath);
 
-void processDirectory(const char *dirPath,const char *outputDir);
+void processDirectory(const char *dirPath);
 
 void processFile(const char *filePath)
 {
@@ -179,7 +178,7 @@ void processSymbolicLink(const char *linkPath)
     close(outputFile);
 }
 
-void processDirectory(const char *dirPath, const char *outputDir)
+void processDirectory(const char *dirPath)
 {
     DIR *dir = opendir(dirPath);
     if (dir == NULL)
@@ -213,38 +212,13 @@ void processDirectory(const char *dirPath, const char *outputDir)
             perror("Eroare la obtinerea informatiilor despre fisier\n");
             continue;
         }
-        int pid=fork();
-        if(pid == -1)
-        {
-            perror("Eroare la procesul fork");
-            exit(-1);
-        }
-        else if(pid == 0)
-        {
-            int total_lines = 0;
-            char outputFileName[1024];
-            snprintf(outputFileName,sizeof(outputFile),"%s/%s_statistica.txt",dirPath, entry->d_name);
-            outputFile=open(outputFileName,O_WRONLY | O_CREAT | O_TRUNC,   S_IRUSR| S_IWUSR);
-
-        }
+	
         if (S_ISREG(file_info.st_mode))
         {
             const char *ext = strrchr(filePath, '.');
             if (ext != NULL && strcmp(ext, ".bmp") == 0)
             {
                 processFile(filePath);
-                int convertToGrayscale_pid=fork();
-                if(convertToGrayscale_pid == -1 )
-                {
-                    perror("eroare la procesul de fork pt grayscale:");
-                    exit(EXIT_FAILURE);
-                }
-                else if(convertToGrayscale_pid == 0)
-                {
-                    convertToGrayscale(filePath,filePath);
-                    exit(EXIT_FAILURE);
-                }
-                else processFile(filePath);
             }
             else
             {
@@ -369,6 +343,13 @@ int main(int argc, char *argv[]) {
             perror("fork error");
             exit(EXIT_FAILURE);
         }
+    }
+    ///creeare pipe-uri
+    int pipe1[2], pipe2[2];
+    if( (pipe(pipe1)< 0) || (pipe(pipe2)<0) )
+    {
+        perror("eroare creare pipe\n");
+        exit(EXIT_FAILURE);
     }
 
     closedir(dir);
